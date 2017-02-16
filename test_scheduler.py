@@ -1,15 +1,17 @@
 import logging
+import unittest.mock as mock
 import os
 import shutil
 import tempfile
 import unittest
+from unittest import TestCase
 
 import schedule
 
 logging.basicConfig(level=logging.INFO)
 
-class TestJob(unittest.TestCase):
 
+class TestJob(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.mkdtemp(prefix='schedule_test')
         self.log = 'truite.log'
@@ -21,14 +23,21 @@ class TestJob(unittest.TestCase):
         self.to_submit_job = None
 
     def tearDown(self):
-        shutil.rmtree(self.directory, ignore_errors=True )
+        shutil.rmtree(self.directory, ignore_errors=True)
 
-    def _test_local(self):
-        job = self.to_submit_job = schedule.Job(self.args, log_path=self.log_path)
-        p = job.submit()
-        p.wait()
-        with open(self.log_path) as fp:
-            self.assertEquals(fp.readline()[:-1], self.echo_vall)
+    def test_local(self):
+        with mock.patch('schedule.Job') as mock_Job:
+            mock_Job._local_submit.return_value = 0
+            job = mock_Job(self.args, log_path=self.log_path)
+            p = job.submit()
+            self.assertEquals(p, 0)
 
     def test_already_running(self):
         pass
+
+
+class TestJobList(TestCase):
+    pass
+
+
+
