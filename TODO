@@ -1,0 +1,4 @@
+look for curses to create a status panel
+
+First prototype will reserve all process in one time,  then crunch the data.
+The second version shoud spawn one process at a time and start crunching as soon as one is available
