@@ -68,7 +68,11 @@ class MpiPool(object):
         self._is_close = True
 
     def join(self):
+        """ Joins force closing the queue!
 
+        :return:
+        """
+        self._is_close = True
         while not self.job_queue.empty():
             sleep(1)
 
