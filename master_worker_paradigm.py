@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 from mpi4py import MPI
 import  random
 from time import sleep
@@ -7,8 +8,12 @@ import socket
 import argparse
 import logging
 import os
-import queue
-import asyncio
+
+try:
+    import queue
+except ImportError:
+    import Queue as queue
+
 import uuid
 import threading
 import psutil
@@ -281,7 +286,7 @@ class MpiPool(object):
 class MPIWorker(MpiPool):
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(MPIWorker, self).__init__(*args, **kwargs)
 
         self.hostname = socket.gethostname()
         try:
@@ -392,7 +397,7 @@ def test_mpi_pool(n_proc=1):
 
     pool = MpiPool(n_proc=n_proc)
     a = [[j for j in range(random.randint(1, 5))] for i in range(33)]
-    args = [(1, 2, 3), ("nous", "allons", "aux", "bois"), *a]
+    args = [(1, 2, 3), ("nous", "allons", "aux", "bois"),]+a
 
     pool.map_mpi(local_one, args)
 
