@@ -396,7 +396,7 @@ def local_one(*args):
 def test_mpi_pool(n_proc=1):
 
     pool = MpiPool(n_proc=n_proc)
-    a = [[j for j in range(random.randint(1, 5))] for i in range(33)]
+    a = [[j for j in range(random.randint(1, 5))] for i in range(153)]
     args = [(1, 2, 3), ("nous", "allons", "aux", "bois"),]+a
 
     pool.map_mpi(local_one, args)
@@ -422,12 +422,12 @@ def main(args=None):
 
     if parsed.mode == 'worker':
         # Use a file handle when more than one worker !!!
-        logging.basicConfig(level=logging.INFO, filename='workers.log', format=FORMAT)
+        logging.basicConfig(level=logging.INFO, filename='/home/poq/workers.log', format=FORMAT)
         worker = MPIWorker()
         worker.exec_pool()
     else:
-        # logging.basicConfig(level=logging.DEBUG, filename='master.log', format=FORMAT)
-        logging.basicConfig(level=logging.DEBUG, format=FORMAT)
+        logging.basicConfig(level=logging.DEBUG, filename='master.log', format=FORMAT)
+        #logging.basicConfig(level=logging.DEBUG, format=FORMAT,stream=sys.stdout)
         test_mpi_pool(n_proc=parsed.np)
 
 
