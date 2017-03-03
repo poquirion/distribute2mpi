@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from mpi4py import MPI
-import  random
+import random
 from time import sleep
 import sys
 import socket
@@ -50,7 +50,6 @@ class MpiPool(object):
     TAG_JOB_TO_MASTER = 3
 
     ALL_TAG = [TAG_JOB_TO_WORKER, TAG_AVAILABLE, TAG_JOB_TO_MASTER]
-
 
     def __init__(self, n_proc=None):
         """
