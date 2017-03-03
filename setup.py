@@ -5,21 +5,21 @@ from setuptools import setup
 
 
 with open('requirements.txt') as req_file:
-    requirements = req_file.readlines()
+    requirements = req_file.read().split()
 
 setup(
     name='ponyexpress',
     version='0.0.1',
-    description="",
+    description="multiprocessing for HPC system ",
     long_description="",
-    author="",
-    author_email='',
-    url='https://github.com/poquirion/poor_man_scheduler/',
+    author="P.-O. Quirion",
+    author_email='pioliqui@gmail.com',
+    url='https://github.com/poquirion/poneyexpress/',
     packages=['ponyexpress', ],
     package_dir={'ponyexpress': 'ponyexpress'},
     include_package_data=True,
     install_requires=requirements,
-    license="{{ cookiecutter.open_source_license }}",
+    license="MIT",
     zip_safe=False,
     keywords='',
     classifiers=[
