@@ -5,7 +5,7 @@ It offers an interface similar to the one of multiprocessing and multithreading 
 
 
 Usage:
-
+```python
 import poneyexpress
 
 def a_func(some_input):
@@ -16,3 +16,4 @@ pool = poneyexpress.MpiPool(n_proc=2)
 async_results = pool.map_mpi(a_func, [input_1, input_2])
 
 pool.join()
+```
