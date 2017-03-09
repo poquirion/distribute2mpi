@@ -421,12 +421,10 @@ def main(args=None):
 
     if parsed.mode == 'worker':
         # Use a file handle when more than one worker !!!
-        logging.basicConfig(level=logging.INFO, filename='/home/poq/workers.log', format=FORMAT)
         worker = MPIWorker()
         worker.exec_pool()
     else:
-        logging.basicConfig(level=logging.DEBUG, filename='master.log', format=FORMAT)
-        #logging.basicConfig(level=logging.DEBUG, format=FORMAT,stream=sys.stdout)
+        logging.basicConfig(level=logging.INFO, format=FORMAT, stream=sys.stdout)
         test_mpi_pool(n_proc=parsed.np)
 
 

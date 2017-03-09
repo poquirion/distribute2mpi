@@ -4,12 +4,11 @@
 from setuptools import setup
 
 
-with open('requirements.txt') as req_file:
-    requirements = req_file.read().split()
+requirements = ['mpi4py', 'psutil']
 
 setup(
     name='ponyexpress',
-    version='0.0.1',
+    version='0.0.4',
     description="multiprocessing for HPC system ",
     long_description="",
     author="P.-O. Quirion",
