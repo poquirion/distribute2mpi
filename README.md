@@ -1,7 +1,7 @@
 # poneyexpress
 Batch processor for localhost or HPC system based on mpi
 
-It offers an interface similar to the one of multiprocessing and multithreading to run python method in parallel. 
+It offers an interface similar to the one of multiprocessing Pool to run python method in parallel. 
 
 
 Usage:
