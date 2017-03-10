@@ -456,7 +456,7 @@ def local_one(*args):
 def test_mpi_pool(n_proc=1):
 
     pool = MpiPool(n_proc=n_proc)
-    a = [[j for j in range(random.randint(1, 5))] for i in range(2)]
+    a = [[j for j in range(random.randint(1, 5))] for i in range(33)]
     args = [(1, 2, 3), ("nous", "allons", "aux", "bois"),]+a
 
     r = pool.map_mpi(local_one, args)
