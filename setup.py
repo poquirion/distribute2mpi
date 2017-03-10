@@ -8,7 +8,7 @@ requirements = ['mpi4py', 'psutil']
 
 setup(
     name='ponyexpress',
-    version='0.0.4',
+    version='0.0.5',
     description="multiprocessing for HPC system ",
     long_description="",
     author="P.-O. Quirion",

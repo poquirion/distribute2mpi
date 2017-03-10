@@ -30,6 +30,33 @@ test_dir = "/home/poq/mpi4py_test"
 
 # job_queue = [{'func':method, 'id': job_uid, 'args', args}]
 
+class Job(object):
+
+    FAILED = 'failed'
+    DONE = 'done'
+    WAITING = 'waiting'
+    WAITING = 'ready'
+    ALL_STATUS = [FAILED, DONE, WAITING]
+
+    def __init__(self, func, args, uid=None, status=None ):
+
+        if uid == None:
+            self.uid = uuid.uuid4()
+        self.args = args
+        if status is None:
+            self.status = self.WAITING
+        elif status in self.ALL_STATUS:
+            self.status = status
+        else:
+            m = 'status {} not recognised'.format(status)
+            raise IOError(m)
+        self.func = func
+        self.retval = None
+
+
+
+
+
 class MpiPool(object):
     """Emulate multiprocess poll but with an mpi interface
     """
@@ -88,13 +115,17 @@ class MpiPool(object):
         self.job_queue.join()
         logging.debug('pooling shutdown')
         self.terminate()
+        logging.info('job done')
 
     def map_mpi(self, func, iterable):
 
         for args in iterable:
-            self.job_queue.put_nowait({self.UID: uuid.uuid4(), self.FUNC: func, self.ARGS: args})
+
+            self.job_queue.put_nowait(Job(args=args, func=func))
 
         self.start()
+
+        return Results(self.completed_jobs)
 
     def start(self):
 
@@ -149,7 +180,7 @@ class MpiPool(object):
                 pass
             if self.all_done:
                 break
-            logging.debug('adding done job {}'.format((done_job[self.FUNC], done_job[self.ARGS])))
+            logging.debug('adding done job {}'.format((done_job.func, done_job.args)))
             completed_jobs.put_nowait(done_job)
             self.job_queue.task_done()
 
@@ -282,6 +313,34 @@ class MpiPool(object):
         logging.debug('thread started')
         return _the_thread
 
+class Results(object):
+    def __init__(self, completed_queue):
+        self._completed_queue = completed_queue
+        self._completed = []
+
+    @property
+    def completed(self):
+        ''' Make a complete list
+
+        :return:
+        '''
+        while True:
+            try:
+                self.completed = self._completed_queue.get_nowait()
+            except queue.Empty:
+                break
+
+        return self._completed
+
+    @completed.setter
+    def completed(self, value):
+        self._completed.append(value)
+
+    def get(self):
+
+        return [ j[Job.RET_VAL] for j in self.completed ]
+
+
 class MPIWorker(MpiPool):
 
     def __init__(self, *args, **kwargs):
@@ -341,8 +400,8 @@ class MPIWorker(MpiPool):
                 # No more jobs to do
                 break
 
-            function = the_job[self.FUNC]
-            args = the_job[self.ARGS]
+            function = the_job.func
+            args = the_job.args
 
             try:
                 fct_ret_val = function(*args)
@@ -350,15 +409,15 @@ class MPIWorker(MpiPool):
             except Exception as e:
                 fct_ret_val = None
                 status = self.FAILED
-            the_job[self.RET_VAL] = fct_ret_val
-            the_job[self.STATUS] = status
+            the_job.retval = fct_ret_val
+            the_job.status = status
 
-            logging.info('{} finish with status {}'.format(the_job[self.FUNC], status))
+            logging.info('{} finish with status {}'.format(the_job.func, status))
             logging.debug('sending results back to master')
             self.icomm.send(the_job, dest=0, tag=self.TAG_JOB_TO_MASTER)
 
             i += 1
-            logging.debug('rank = {} job = {} loop num = {}'.format(self.icomm.rank, (the_job[self.FUNC], the_job[self.ARGS]), i))
+            logging.debug('rank = {} job = {} loop num = {}'.format(self.icomm.rank, (the_job.func, the_job.args), i))
 
         logging.info('worker {} on {} terminating'.format(self.rank, self.hostname))
 
@@ -388,23 +447,22 @@ def local_one(*args):
     hostname = socket.gethostname()
     log = 'I am on {},  and this is local_one processing these args {}'.format(hostname, args)
     logging.info(log)
-    sleep(.5)
+    # sleep(.5)
     return '{}\n and these are your args\n {}'.format(log, args)
 
 
 def test_mpi_pool(n_proc=1):
 
     pool = MpiPool(n_proc=n_proc)
-    a = [[j for j in range(random.randint(1, 5))] for i in range(153)]
+    a = [[j for j in range(random.randint(1, 5))] for i in range(2)]
     args = [(1, 2, 3), ("nous", "allons", "aux", "bois"),]+a
 
-    pool.map_mpi(local_one, args)
+    r = pool.map_mpi(local_one, args)
 
     # blocking statement
     # TODO put a blocking statement that can Show a progress status with the job and workers
     pool.join()
-
-    logging.info('still does stuff')
+    logging.info('results are: {}'.format(r.get()))
 
 
 def main(args=None):
@@ -424,7 +482,7 @@ def main(args=None):
         worker = MPIWorker()
         worker.exec_pool()
     else:
-        logging.basicConfig(level=logging.INFO, format=FORMAT, stream=sys.stdout)
+        logging.basicConfig(level=logging.DEBUG, format=FORMAT, stream=sys.stdout)
         test_mpi_pool(n_proc=parsed.np)
 
 
