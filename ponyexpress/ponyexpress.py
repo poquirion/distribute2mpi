@@ -99,6 +99,8 @@ class MpiPool(object):
         self._is_close = False
         self._all_thread = []
         self.all_done = False
+        self.stop_threads = False
+        self._seep_time = 1
 
     def close(self):
         self._is_close = True
@@ -133,22 +135,21 @@ class MpiPool(object):
 
         logging.debug('launch add worker')
         self.worker_monitor_thread = threading.Thread(
-            target=self.__add_worker_to_pool,
-            args=(self.icomm, self.worker_pool))
+            target=self.__add_worker_to_pool, args=(self.worker_pool,))
         self.worker_monitor_thread.start()
         self._all_thread.append(self.worker_monitor_thread)
 
         logging.debug('launch receive results')
         self.completed_jobs_thread = threading.Thread(
             target=self.__receive_results,
-            args=(self.icomm, self.completed_jobs))
+            args=(self.completed_jobs,))
         self.completed_jobs_thread.start()
         self._all_thread.append(self.completed_jobs_thread)
 
         logging.debug('launch send job')
         self.job_monitor_thread = threading.Thread(
             target=self.__send_job,
-            args=(self.icomm, self.job_queue, self.worker_pool))
+            args=(self.job_queue, self.worker_pool))
         self.job_monitor_thread.start()
         self._all_thread.append(self.job_monitor_thread)
 
@@ -164,29 +165,27 @@ class MpiPool(object):
     #         logging.info('HELP')
     #         sleep(.2)
 
-    def __receive_results(self, icomm, completed_jobs):
+    def __receive_results(self, completed_jobs):
 
         logging.info('receive loop on')
-        done_job = None
         while True:
             # blocking call
-            logging.debug('waiting for done job')
-            done_job = None
-            # while done_job is None:
-            #     done_job = self.icomm.irecv(source=MPI.ANY_SOURCE, tag=self.TAG_JOB_TO_MASTER)
-            try:
-                done_job = self.icomm.recv(source=MPI.ANY_SOURCE, tag=self.TAG_JOB_TO_MASTER)
-            except MPI.Exception:
-                pass
-            if self.all_done:
+            logging.debug('request')
+            job_request = self.icomm.irecv(source=MPI.ANY_SOURCE, tag=self.TAG_JOB_TO_MASTER)
+            while not job_request.Get_status() and not self.stop_threads:
+                logging.debug('waiting for done job {}'.format(job_request.Get_status()))
+                sleep(self._seep_time)
+            if self.stop_threads:
                 break
-            logging.debug('adding done job {}'.format((done_job.func, done_job.args)))
-            completed_jobs.put_nowait(done_job)
-            self.job_queue.task_done()
+            done_job = job_request.wait()
+            if done_job is not None:
+                logging.debug('adding done job {}'.format((done_job.func, done_job.args)))
+                completed_jobs.put_nowait(done_job)
+                self.job_queue.task_done()
 
         logging.info('receive loop off')
 
-    def __add_worker_to_pool(self, icomm, worker_pool):
+    def __add_worker_to_pool(self, worker_pool):
         """ This loop add available worker to worker queue
 
         :param icomm:
@@ -195,23 +194,24 @@ class MpiPool(object):
         """
         logging.info('worker loop on')
         while True:
-            logging.debug('waiting for new worker')
-            new_rank = None
-            # blocking loop
-            # while new_rank is None:
-            # new_rank = comm.recv(source=MPI.ANY_SOURCE, tag=self.TAG_AVAILABLE)
-            try:
-                new_rank = self.icomm.recv(source=MPI.ANY_SOURCE, tag=self.TAG_AVAILABLE)
-            except MPI.Exception:
-                pass
-            if self.all_done:
+            logging.debug('request')
+            new_rank_request = self.icomm.irecv(source=MPI.ANY_SOURCE, tag=self.TAG_AVAILABLE)
+            while not new_rank_request.Get_status() and not self.stop_threads:
+                logging.debug('waiting for new workers {}'.format(new_rank_request.Get_status()))
+                sleep(self._seep_time)
+            if self.stop_threads:
                 break
-            logging.debug('adding worker {}'.format(new_rank))
-            worker_pool.put_nowait(new_rank)
+            new_rank = new_rank_request.wait()
+            if new_rank is not None:
+                logging.debug('adding worker {}'.format(new_rank))
+                worker_pool.put_nowait(new_rank)
+
         logging.info('worker loop off')
 
-    def __send_job(self, icomm, job_queue, worker_pool):
+    def __send_job(self, job_queue, worker_pool):
         logging.info('job loop on')
+        a_worker = None
+        a_job = None
         while True:
             # when job is None, nothing left tp do!
             logging.debug('waiting for job  {}'.format(job_queue.qsize()))
@@ -219,37 +219,37 @@ class MpiPool(object):
 
             logging.debug('waiting for worker')
             # Blocking loop
-            a_worker = None
             while a_worker is None:
                 try:
                     a_worker = worker_pool.get(timeout=1)
                 except queue.Empty:
                     pass
-                if self.all_done:
-                    # all jobs are done, yé!
-                    a_worker = None
-            logging.debug('got worker')
+                if self.stop_threads:
+                    break
+            if self.stop_threads:
+                break
 
-            a_job = None
+            logging.debug('got worker {}'.format(a_worker))
+
+            # Blocking loop
             while a_job is None:
                 try:
                     a_job = job_queue.get(timeout=1)
                 except queue.Empty:
-                    if self.all_done:
-                        a_job = None
-                    if self._is_close:
-                        # all jobs are done, yé!
-                        a_job = False
-            logging.debug('{} {}'.format(a_worker, a_job))
-            if a_job is not None and a_worker is not None:
-                logging.debug('sending {} to {}'.format(a_job, a_worker))
-                try :
-                    icomm.send(a_job, dest=a_worker, tag=self.TAG_JOB_TO_WORKER)
-                except MPI.Exception:
+                    pass
+                if self.stop_threads:
                     break
-                logging.debug('sent to worker {}'.format(a_worker))
-            else:
+            if self.stop_threads:
                 break
+
+            logging.debug('{} {}'.format(a_worker, a_job))
+            logging.debug('sending {} to {}'.format(a_job, a_worker))
+            self.icomm.send(a_job, dest=a_worker, tag=self.TAG_JOB_TO_WORKER)
+            a_worker = None
+            a_job = None
+            logging.debug('sent to worker {}'.format(a_worker))
+
+
         logging.info('job loop off')
 
     def soft_terminate(self, timeout=None):
@@ -268,8 +268,10 @@ class MpiPool(object):
         self.all_done = True
         logging.info('broadcasting death')
         self.icomm.bcast(self.BR_KILL, root=MPI.ROOT)
-        logging.debug('disconnect')
-        self.icomm.Disconnect()
+        logging.debug('stoping thread')
+        self.stop_threads = True
+        # logging.debug('disconnect')
+        # self.icomm.Disconnect()
         # logging.debug('sleep a bit')
         # sleep(3)
 
@@ -338,7 +340,7 @@ class Results(object):
 
     def get(self):
 
-        return [ j[Job.RET_VAL] for j in self.completed ]
+        return [j.retval for j in self.completed]
 
 
 class MPIWorker(MpiPool):
@@ -478,6 +480,7 @@ def main(args=None):
     FORMAT = "%(levelname)7s --%(lineno)5s %(funcName)25s():  %(message)s"
 
     if parsed.mode == 'worker':
+        logging.basicConfig(level=logging.DEBUG, format=FORMAT, filename='/tmp/worker.log')
         # Use a file handle when more than one worker !!!
         worker = MPIWorker()
         worker.exec_pool()
