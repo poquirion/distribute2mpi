@@ -8,6 +8,10 @@ import socket
 import argparse
 import logging
 import os
+import dill
+
+MPI.pickle.dumps = dill.dumps
+MPI.pickle.loads = dill.loads
 
 try:
     import queue
@@ -23,7 +27,7 @@ import psutil
 #TODO Build Job Queue(s) with status
 #TODO BUILD Cleaner and more robust python thread and MPI process exit
 
-test_dir = "/home/poq/mpi4py_test"
+#test_dir = "/home/poq/mpi4py_test"
 # comm = MPI.COMM_WORLD
 # mode = MPI.MODE_WRONLY|MPI.MODE_CREATE#|MPI.MODE_APPEND
 
@@ -480,6 +484,7 @@ def main(args=None):
     FORMAT = "%(levelname)7s --%(lineno)5s %(funcName)25s():  %(message)s"
 
     if parsed.mode == 'worker':
+
         logging.basicConfig(level=logging.DEBUG, format=FORMAT, filename='/tmp/worker.log')
         # Use a file handle when more than one worker !!!
         worker = MPIWorker()
