@@ -1,38 +1,32 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from mpi4py import MPI
-import random
-from time import sleep
-import sys
-import socket
 import argparse
 import logging
 import os
-import dill
+import random
+import socket
+import sys
+import threading
+import uuid
+from time import sleep
 
-MPI.pickle.dumps = dill.dumps
-MPI.pickle.loads = dill.loads
+import psutil
+from mpi4py import MPI
 
+try :
+    import dill
+    MPI.pickle.dumps = dill.dumps
+    MPI.pickle.loads = dill.loads
+except ImportError:
+    pass
 try:
     import queue
 except ImportError:
     import Queue as queue
 
-import uuid
-import threading
-import psutil
-
-
 #TODO Build process queue with status
 #TODO Build Job Queue(s) with status
-#TODO BUILD Cleaner and more robust python thread and MPI process exit
 
-#test_dir = "/home/poq/mpi4py_test"
-# comm = MPI.COMM_WORLD
-# mode = MPI.MODE_WRONLY|MPI.MODE_CREATE#|MPI.MODE_APPEND
-
-
-# job_queue = [{'func':method, 'id': job_uid, 'args', args}]
 
 class Job(object):
 
@@ -42,7 +36,7 @@ class Job(object):
     WAITING = 'ready'
     ALL_STATUS = [FAILED, DONE, WAITING]
 
-    def __init__(self, func, args, uid=None, status=None ):
+    def __init__(self, func, args, uid=None, status=None):
 
         if uid == None:
             self.uid = uuid.uuid4()
@@ -56,9 +50,6 @@ class Job(object):
             raise IOError(m)
         self.func = func
         self.retval = None
-
-
-
 
 
 class MpiPool(object):
@@ -92,7 +83,6 @@ class MpiPool(object):
         self.job_queue = queue.Queue()
         self.nproc = n_proc
         self.worker_pool = queue.Queue()
-        # self.worker_pool = asyncio.Queue()
         self.waiting_worker = queue.deque()
         self.running_worker = queue.deque()
         self.running_jobs = queue.deque()
@@ -123,8 +113,7 @@ class MpiPool(object):
         self.terminate()
         logging.info('job done')
 
-    def map_mpi(self, func, iterable):
-
+    def map_async(self, func, iterable):
         for args in iterable:
 
             self.job_queue.put_nowait(Job(args=args, func=func))
@@ -135,8 +124,9 @@ class MpiPool(object):
 
     def start(self):
 
-        self.spawn_worker(n_process=self.nproc)
+        # dill.dump_session()
 
+        self.spawn_worker(n_process=self.nproc)
         logging.debug('launch add worker')
         self.worker_monitor_thread = threading.Thread(
             target=self.__add_worker_to_pool, args=(self.worker_pool,))
@@ -220,7 +210,6 @@ class MpiPool(object):
             # when job is None, nothing left tp do!
             logging.debug('waiting for job  {}'.format(job_queue.qsize()))
 
-
             logging.debug('waiting for worker')
             # Blocking loop
             while a_worker is None:
@@ -280,9 +269,9 @@ class MpiPool(object):
         # sleep(3)
 
     def spawn_worker(self, n_process):
-        '''Sends jobs to slaves
+        """Sends jobs to slaves
         :return:
-        '''
+        """
 
         logging.info('Spawning worker form {}!'.format(socket.gethostname()))
 
@@ -319,6 +308,7 @@ class MpiPool(object):
         logging.debug('thread started')
         return _the_thread
 
+
 class Results(object):
     def __init__(self, completed_queue):
         self._completed_queue = completed_queue
@@ -332,7 +322,7 @@ class Results(object):
         '''
         while True:
             try:
-                self.completed = self._completed_queue.get_nowait()
+                self._completed.append(self._completed_queue.get_nowait())
             except queue.Empty:
                 break
 
@@ -351,6 +341,8 @@ class MPIWorker(MpiPool):
 
     def __init__(self, *args, **kwargs):
         super(MPIWorker, self).__init__(*args, **kwargs)
+
+        # dill.load_session()
 
         self.hostname = socket.gethostname()
         try:
@@ -400,7 +392,7 @@ class MPIWorker(MpiPool):
             the_job = self.icomm.recv(source=0, tag=self.TAG_JOB_TO_WORKER)
             # self.icomm.send(33, dest=0, tag=33)
 
-            logging.debug('worker {} got job\n{}'.format(self.rank, the_job))
+            logging.debug('worker {} got job{}'.format(self.rank, the_job))
 
             if the_job is None:
                 # No more jobs to do
@@ -408,11 +400,17 @@ class MPIWorker(MpiPool):
 
             function = the_job.func
             args = the_job.args
-
+            logging.debug(function)
+            logging.debug(args)
             try:
-                fct_ret_val = function(*args)
+                fct_ret_val = function(args)
                 status = self.DONE
             except Exception as e:
+                import traceback
+                logging.error(e.message)
+                logging.error(function)
+                logging.error(args)
+
                 fct_ret_val = None
                 status = self.FAILED
             the_job.retval = fct_ret_val
@@ -449,6 +447,7 @@ class MPIWorker(MpiPool):
         self.com_cleaup()
         os._exit(0)
 
+
 def local_one(*args):
     hostname = socket.gethostname()
     log = 'I am on {},  and this is local_one processing these args {}'.format(hostname, args)
@@ -463,7 +462,7 @@ def test_mpi_pool(n_proc=1):
     a = [[j for j in range(random.randint(1, 5))] for i in range(33)]
     args = [(1, 2, 3), ("nous", "allons", "aux", "bois"),]+a
 
-    r = pool.map_mpi(local_one, args)
+    r = pool.map_async(local_one, args)
 
     # blocking statement
     # TODO put a blocking statement that can Show a progress status with the job and workers
@@ -485,7 +484,7 @@ def main(args=None):
 
     if parsed.mode == 'worker':
 
-        logging.basicConfig(level=logging.DEBUG, format=FORMAT, filename='/tmp/worker.log')
+        logging.basicConfig(level=logging.info, format=FORMAT, filename='/tmp/worker.log')
         # Use a file handle when more than one worker !!!
         worker = MPIWorker()
         worker.exec_pool()
