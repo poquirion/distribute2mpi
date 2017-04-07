@@ -18,13 +18,14 @@ try :
     MPI.pickle.dumps = dill.dumps
     MPI.pickle.loads = dill.loads
 except ImportError:
-    pass
+    logging.warning('dill not installed')
+
 try:
     import queue
 except ImportError:
     import Queue as queue
 
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 #TODO Build process queue with status
 #TODO Build Job Queue(s) with status

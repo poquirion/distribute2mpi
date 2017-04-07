@@ -4,11 +4,11 @@
 from setuptools import setup
 
 
-requirements = ['mpi4py', 'psutil']
+requirements = ['mpi4py', 'psutil', 'dill']
 
 setup(
     name='distribute2mpi',
-    version='0.2.3',
+    version='0.2.4',
     description="Multiprocessing for HPC system using MPI",
     long_description="Expand the fonctionality of the multiprocessing module from multiple processes on a single machine to multiple processes on multiple machines.",
     author="P.-O. Quirion",
