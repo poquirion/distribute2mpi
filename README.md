@@ -16,7 +16,7 @@ import distribute2mpi
 def a_func(some_input):
     do_stuff()
 
-pool = poneyexpress.MpiPool(n_proc=2)
+pool = distribute2mpi.MpiPool(n_proc=2)
 
 async_results = pool.map_async(a_func, [input_1, input_2])
 
