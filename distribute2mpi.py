@@ -24,6 +24,8 @@ try:
 except ImportError:
     import Queue as queue
 
+__version__ = 0.2.2
+
 #TODO Build process queue with status
 #TODO Build Job Queue(s) with status
 
