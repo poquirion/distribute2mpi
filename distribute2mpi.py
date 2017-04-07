@@ -483,8 +483,7 @@ def main(args=None):
     FORMAT = "%(levelname)7s --%(lineno)5s %(funcName)25s():  %(message)s"
 
     if parsed.mode == 'worker':
-
-        logging.basicConfig(level=logging.info, format=FORMAT, filename='/tmp/worker.log')
+        logging.basicConfig(level=logging.INFO, format=FORMAT, filename='/tmp/worker.log')
         # Use a file handle when more than one worker !!!
         worker = MPIWorker()
         worker.exec_pool()
