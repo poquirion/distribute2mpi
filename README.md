@@ -5,7 +5,11 @@ It offers an interface similar to the one of multiprocessing Pool to run python 
 
 Righ now a simple map method is available.
 
-Usage:
+## Instalation:
+`pip install distribute2mpi`
+
+
+## Usage:
 ```python
 import distribute2mpi
 
