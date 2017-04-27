@@ -163,7 +163,12 @@ class MpiPool(object):
     #         sleep(.2)
 
     def __receive_results(self, completed_jobs):
-
+        """ This loop recive completed jobs from workers and put then 
+        in the completed_jobs Queue.
+        
+        :param completed_jobs: 
+        :return: 
+        """
         logging.info('receive loop on')
         while True:
             # blocking call
@@ -183,7 +188,7 @@ class MpiPool(object):
         logging.info('receive loop off')
 
     def __add_worker_to_pool(self, worker_pool):
-        """ This loop add available worker to worker queue
+        """ This loop add available worker to worker_pool
 
         :param icomm:
         :param worker_pool:
@@ -206,6 +211,12 @@ class MpiPool(object):
         logging.info('worker loop off')
 
     def __send_job(self, job_queue, worker_pool):
+        """ Send Jobs form job_queue to workers in worker_pool.
+        
+        :param job_queue: 
+        :param worker_pool: 
+        :return: 
+        """
         logging.info('job loop on')
         a_worker = None
         a_job = None
@@ -281,7 +292,7 @@ class MpiPool(object):
         # TODO spawn many comm with one process each instead of many process with one comm
 
         self.icomm = MPI.COMM_WORLD.Spawn(
-            sys.executable, args=[os.path.realpath(__file__), '--mode ', 'worker'], maxprocs=n_process)
+            sys.executable, args=[os.path.realpath(__file__)], maxprocs=n_process)
 
         logging.info('spawned {} mpi workers'.format(n_process))
 
@@ -479,7 +490,7 @@ def main(args=None):
         args = sys.argv[1:]
 
     parser = argparse.ArgumentParser(description='A Master Worker MPI setup')
-    parser.add_argument("--mode", default='master')
+    parser.add_argument("--mode", default='worker')
     parser.add_argument("-n", "--np", default=1, type=int)
     parsed = parser.parse_args(args)
 
