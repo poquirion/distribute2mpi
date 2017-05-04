@@ -3,7 +3,9 @@ Batch processor for localhost (Linux and OSX tested) or HPC system based on mpi
 
 It offers an interface similar to the one of multiprocessing Pool to run python method in parallel. 
 
-Righ now a simple map method is available.
+Righ now a simple map method is available. 
+
+[Pypi project page](https://pypi.python.org/pypi/distribute2mpi)
 
 ## Instalation:
 `pip install distribute2mpi`
