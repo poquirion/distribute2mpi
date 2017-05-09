@@ -30,7 +30,7 @@ results = async_results.get()
 
 To execute script using distribute2mpi on a single machine, just run `mpiexec -n 1 my_script.py --some_script_option --more_options`
 
-To run your code on 1000 processor (!) on an HPC running for example PBS, run `qsub submit_myscript.sh`, where submit_myscript.sh is:
+To run your code on 1000 processors (!) on an HPC running for example PBS, run `qsub submit_myscript.sh`, where submit_myscript.sh is:
 
 ```bash
 #!/bin/bash
