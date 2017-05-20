@@ -3,6 +3,7 @@
 import argparse
 import logging
 import os
+import operator
 import random
 import socket
 import sys
@@ -25,7 +26,7 @@ try:
 except ImportError:
     import Queue as queue
 
-__version__ = "0.2.6"
+__version__ = "0.3.0"
 
 #TODO Build process queue with status
 #TODO Build Job Queue(s) with status
@@ -38,11 +39,23 @@ class Job(object):
     WAITING = 'waiting'
     WAITING = 'ready'
     ALL_STATUS = [FAILED, DONE, WAITING]
+    lock = threading.Lock()
+    __order = 0
+
+    @classmethod
+    def update_order(cls):
+        with cls.lock:
+            cls.__order += 1
+            return cls.__order
 
     def __init__(self, func, args, uid=None, status=None):
 
         if uid == None:
             self.uid = uuid.uuid4()
+
+        self.order = self.update_order()
+        logging.debug('Job order {}'.format(self.order))
+
         self.args = args
         if status is None:
             self.status = self.WAITING
@@ -54,6 +67,9 @@ class Job(object):
         self.func = func
         self.retval = None
 
+
+class TimeoutError(Exception):
+    pass
 
 class MpiPool(object):
     """Emulate multiprocess poll but with an mpi interface
@@ -114,16 +130,19 @@ class MpiPool(object):
         self.job_queue.join()
         logging.debug('pooling shutdown')
         self.terminate()
+        logging.debug('Set done to True in result object')
+        self.results.done.set()
         logging.info('job done')
 
     def map_async(self, func, iterable):
         for args in iterable:
-
+            logging.debug('input args {}, func {}'.format(args, func))
             self.job_queue.put_nowait(Job(args=args, func=func))
 
         self.start()
+        self.results = Results(self.completed_jobs)
 
-        return Results(self.completed_jobs)
+        return self.results
 
     def start(self):
 
@@ -327,6 +346,7 @@ class Results(object):
     def __init__(self, completed_queue):
         self._completed_queue = completed_queue
         self._completed = []
+        self.done = threading.Event()
 
     @property
     def completed(self):
@@ -346,9 +366,13 @@ class Results(object):
     def completed(self, value):
         self._completed.append(value)
 
-    def get(self):
+    def get(self, timeout=None):
 
-        return [j.retval for j in self.completed]
+        is_done = self.done.wait(timeout)
+        if not is_done:
+            raise TimeoutError('No result after {} s'.format(timeout))
+
+        return [j.retval for j in sorted(self.completed, key=operator.attrgetter('order'))]
 
 
 class MPIWorker(MpiPool):
@@ -484,6 +508,24 @@ def test_mpi_pool(n_proc=1):
     logging.info('results are: {}'.format(r.get()))
 
 
+def sleep_fct(time):
+    sleep(time)
+    return time
+
+
+def test_job_order(n_proc=1):
+
+    pool = MpiPool(n_proc=n_proc)
+    a = [j for j in range(10, 0, -1)]
+
+    r = pool.map_async(sleep_fct, a)
+
+    # blocking statement
+    # TODO put a blocking statement that can Show a progress status with the job and workers
+    pool.join()
+    logging.info('results are: {}'.format(r.get()))
+
+
 def main(args=None):
 
     if args is None:
@@ -503,9 +545,10 @@ def main(args=None):
         worker.exec_pool()
     else:
         logging.basicConfig(level=logging.DEBUG, format=FORMAT, stream=sys.stdout)
-        test_mpi_pool(n_proc=parsed.np)
+        # test_mpi_pool(n_proc=parsed.np)
+        test_job_order(n_proc=parsed.np)
+
 
 
 if __name__ == '__main__':
     main()
-
