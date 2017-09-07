@@ -19,7 +19,7 @@ try:
     MPI.pickle.dumps = dill.dumps
     MPI.pickle.loads = dill.loads
 except ImportError:
-    logging.warning('dill not installed')
+    logger.warning('dill not installed')
 
 try:
     import queue
@@ -58,7 +58,7 @@ class Job(object):
 
         self.order = self.update_order()
 
-        logging.debug('Job order {}'.format(self.order))
+        logger.debug('Job order {}'.format(self.order))
 
         self.args = args
         if status is None:
@@ -543,22 +543,22 @@ def main(args=None):
     parser.add_argument("-n", "--np", default=1, type=int)
     parsed = parser.parse_args(args)
 
-    FORMAT = "%(levelname)7s --%(lineno)5s %(funcName)25s():  %(message)s"
-
+    log_format = "%(levelname)7s --%(lineno)5s %(funcName)25s():  %(message)s"
+    formatter = logging.Formatter(log_format)
     if parsed.mode == 'worker':
 
-        # handler = logging.FileHandler(filename='/tmp/worker.log')
-        # handler.setFormatter(FORMAT)
-        # handler.setLevel(logging.INFO)
-        # logger.addHandler(handler)
+        handler = logging.FileHandler(filename='/tmp/worker.log')
+        handler.setFormatter(formatter)
+        handler.setLevel(logging.DEBUG)
+        logger.addHandler(handler)
         # Use a file handle when more than one worker !!!
         worker = MPIWorker()
         worker.exec_pool()
     else:
-        # sh = logging.StreamHandler(stream=sys.stdout)
-        # sh.setLevel(logging.DEBUG)
-        # sh.setFormatter(FORMAT)
-        # logger.addHandler(sh)
+        sh = logging.StreamHandler(stream=sys.stdout)
+        sh.setLevel(logging.DEBUG)
+        sh.setFormatter(formatter)
+        logger.addHandler(sh)
         #
         # test_mpi_pool(n_proc=parsed.np)
         test_job_order(n_proc=parsed.np)
